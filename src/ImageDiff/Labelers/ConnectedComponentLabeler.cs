@@ -25,6 +25,7 @@ namespace ImageDiff.Labelers
             Labels = new int[width, height];
 
             var nextLabel = 1;
+            Linked.Clear();
             for (var y = 0; y < height; y++)
             {
                 for (var x = 0; x < width; x++)
