@@ -49,7 +49,37 @@ namespace ImageDiff
             AnalyzerType = options.AnalyzerType;
         }
 
-        public Bitmap Compare(Bitmap firstImage, Bitmap secondImage)
+		public IEnumerable<Rectangle> IdentifyBoundingBoxes(Bitmap firstImage, Bitmap secondImage) {
+			if (firstImage == null) throw new ArgumentNullException("firstImage");
+			if (secondImage == null) throw new ArgumentNullException("secondImage");
+			if (firstImage.Width != secondImage.Width || firstImage.Height != secondImage.Height) throw new ArgumentException("Bitmaps must be the same size.");
+
+			var differenceMap = BitmapAnalyzer.Analyze(firstImage, secondImage);
+			var differenceLabels = Labeler.Label(differenceMap);
+			return BoundingBoxIdentifier.CreateBoundingBoxes(differenceLabels);
+		}
+
+		public Bitmap CreateImageWithBoundingBoxes(Bitmap image, IEnumerable<Rectangle> boundingBoxes) {
+			if (boundingBoxes == null) throw new ArgumentNullException("boundingBoxes");
+			if (image == null) throw new ArgumentNullException("image");
+
+			var differenceBitmap = image.Clone() as Bitmap;
+			if (differenceBitmap == null) throw new Exception("Could not copy image");
+
+			var boundingRectangles = boundingBoxes.ToArray();
+			if (boundingRectangles.Length == 0)
+				return differenceBitmap;
+
+			using (var g = Graphics.FromImage(differenceBitmap)) {
+				var pen = new Pen(BoundingBoxColor);
+				foreach (var boundingRectangle in boundingRectangles) {
+					g.DrawRectangle(pen, boundingRectangle);
+				}
+			}
+			return differenceBitmap;
+		}
+
+		public Bitmap Compare(Bitmap firstImage, Bitmap secondImage)
         {
             if (firstImage == null) throw new ArgumentNullException("firstImage");
             if (secondImage == null) throw new ArgumentNullException("secondImage");
@@ -57,8 +87,8 @@ namespace ImageDiff
             
             var differenceMap = BitmapAnalyzer.Analyze(firstImage, secondImage);
             var differenceLabels = Labeler.Label(differenceMap);
-            var boundingBoxes = BoundingBoxIdentifier.CreateBoundingBoxes(differenceLabels);
-            var differenceBitmap = CreateImageWithBoundingBoxes(secondImage, boundingBoxes);
+			var boundingBoxes = IdentifyBoundingBoxes(firstImage, secondImage);
+			var differenceBitmap = CreateImageWithBoundingBoxes(secondImage, boundingBoxes);
             return differenceBitmap;
         }
 
@@ -82,26 +112,6 @@ namespace ImageDiff
                 }
             }
             return true;
-        }
-
-        private Bitmap CreateImageWithBoundingBoxes(Bitmap secondImage, IEnumerable<Rectangle> boundingBoxes)
-        {
-            var differenceBitmap = secondImage.Clone() as Bitmap;
-            if (differenceBitmap == null) throw new Exception("Could not copy secondImage");
-
-            var boundingRectangles = boundingBoxes.ToArray();
-            if (boundingRectangles.Length == 0)
-                return differenceBitmap;
-
-            using (var g = Graphics.FromImage(differenceBitmap))
-            {
-                var pen = new Pen(BoundingBoxColor);
-                foreach (var boundingRectangle in boundingRectangles)
-                {
-                    g.DrawRectangle(pen, boundingRectangle);
-                }
-            }
-            return differenceBitmap;
         }
     }
 }
